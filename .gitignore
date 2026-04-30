@@ -1,0 +1,52 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build and packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs and local runtime files
+*.log
+*.pid
+*.seed
+
+# IDE/editor files
+.idea/
+.vscode/*
+# !.vscode/settings.json
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment variables / local secrets
+.env
+.env.*
+
+# Generated artifacts from project scripts
+data/processed/cs_papers.pkl
+data/raw/arxiv-metadata-oai-snapshot.json
+indexes/bm25/bm25_index.pkl
+indexes/bm25/paper_ids.pkl
+indexes/faiss/faiss_index.bin
+indexes/faiss/paper_ids.pkl
+evaluation/scidocs/scidocs/
+evaluation/scidocs/*.zip
+

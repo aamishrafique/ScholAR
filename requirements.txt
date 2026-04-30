@@ -1,0 +1,9 @@
+beir
+faiss-cpu
+kaggle
+nltk
+numpy
+# pickle
+rank_bm25
+sentence-transformers
+tqdm
