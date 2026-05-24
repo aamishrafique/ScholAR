@@ -1,8 +1,9 @@
+import quiet_imports  # noqa: F401
+
 import pickle
 import faiss
 from sentence_transformers import SentenceTransformer
 from preprocess import PROCESSED_PATH, tokenize_and_stem
-
 
 BM25_INDEX_PATH = "indexes/bm25/bm25_index.pkl"
 BM25_IDS_PATH = "indexes/bm25/paper_ids.pkl"

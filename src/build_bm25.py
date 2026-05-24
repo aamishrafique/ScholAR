@@ -4,7 +4,6 @@ from rank_bm25 import BM25Okapi
 from tqdm import tqdm
 from preprocess import PROCESSED_PATH, get_document_text, tokenize_and_stem
 
-
 BM25_INDEX_PATH = "indexes/bm25/bm25_index.pkl"
 BM25_IDS_PATH = "indexes/bm25/paper_ids.pkl"
 

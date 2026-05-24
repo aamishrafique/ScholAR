@@ -7,7 +7,6 @@ from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from tqdm import tqdm
 
-
 RAW_PATH = "data/raw/arxiv-metadata-oai-snapshot.json"
 PROCESSED_PATH = "data/processed/cs_papers.pkl"
 stemmer = PorterStemmer()

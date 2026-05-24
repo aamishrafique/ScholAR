@@ -1,0 +1,20 @@
+graph neural networks for node classification
+transformer attention mechanisms for NLP
+reinforcement learning in robotics
+federated learning privacy
+computer vision object detection
+large language model fine tuning
+cryptographic protocols zero knowledge
+database query optimization
+distributed systems consensus algorithms
+natural language processing sentiment analysis
+adversarial attacks deep neural networks
+knowledge graph embedding
+quantum computing algorithms
+software bug detection machine learning
+recommender systems collaborative filtering
+time series forecasting LSTM
+blockchain smart contracts security
+autonomous vehicle perception
+protein structure prediction
+meta learning few shot classification

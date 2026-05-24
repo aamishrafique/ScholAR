@@ -5,5 +5,7 @@ nltk
 numpy
 # pickle
 rank_bm25
+scikit-learn
 sentence-transformers
+streamlit
 tqdm

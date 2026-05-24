@@ -49,4 +49,10 @@ indexes/faiss/faiss_index.bin
 indexes/faiss/paper_ids.pkl
 evaluation/scidocs/scidocs/
 evaluation/scidocs/*.zip
+evaluation/trec-covid/
+evaluation/results/*
+!evaluation/results/.gitkeep
+dist/
 
+scripts.sh
+upload_files_to_workspace.py

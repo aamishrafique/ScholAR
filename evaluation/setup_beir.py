@@ -2,7 +2,6 @@ import os
 from beir import util
 from beir.datasets.data_loader import GenericDataLoader
 
-
 SCIDOCS_PATH = "evaluation/scidocs"
 
 

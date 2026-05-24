@@ -1,3 +1,5 @@
+import quiet_imports  # noqa: F401
+
 import os
 import pickle
 import faiss
@@ -6,7 +8,6 @@ import torch
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 from preprocess import PROCESSED_PATH, get_document_text
-
 
 FAISS_INDEX_PATH = "indexes/faiss/faiss_index.bin"
 FAISS_IDS_PATH = "indexes/faiss/paper_ids.pkl"
