@@ -1,10 +1,21 @@
 """
 Experiment 2 — Relevance feedback gain (Week 3).
 
-Compares hybrid retrieval before vs. after one round of pseudo-Rocchio
-feedback on a sample of SCIDOCS queries.
+Compares hybrid retrieval against one round of Rocchio feedback on a sample of
+SCIDOCS queries, using two feedback strategies:
+
+* Explicit feedback — judged-relevant docs among the retrieved hits (from qrels)
+  are marked relevant, the rest non-relevant. Simulates a user who marks the
+  results they actually see. This is the headline result for the proposal's
+  "measurable query-expansion gains" objective.
+* Pseudo feedback — the top-3 hybrid hits are blindly assumed relevant, with no
+  user input. Included as a contrast: it degrades on a low-precision, citation-
+  based corpus like SCIDOCS.
+
+Results are written to evaluation/results/feedback_report.json.
 """
 
+import json
 import os
 import random
 import sys
@@ -20,6 +31,7 @@ SCIDOCS_FOLDER = "evaluation/scidocs/scidocs"
 SCIDOCS_URL = (
     "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scidocs.zip"
 )
+RESULTS_DIR = os.path.join(os.path.dirname(__file__), "results")
 SAMPLE_SIZE = 20
 SEED = 42
 TOP_K = 10
@@ -53,6 +65,17 @@ def load_scidocs():
     return GenericDataLoader(data_folder=SCIDOCS_FOLDER).load(split="test")
 
 
+def evaluate_run(evaluator: EvaluateRetrieval, qrels: dict, results: dict) -> dict:
+    ndcg, map_, _, precision = evaluator.evaluate(qrels, results, [5, 10])
+    mrr = EvaluateRetrieval.evaluate_custom(qrels, results, [10], metric="mrr")
+    return {
+        "nDCG@10": ndcg["NDCG@10"],
+        "MAP@10": map_["MAP@10"],
+        "P@5": precision["P@5"],
+        "MRR@10": mrr["MRR@10"],
+    }
+
+
 def run_feedback_experiment():
     corpus, queries, qrels = load_scidocs()
     print(f"SCIDOCS — corpus: {len(corpus)} | queries: {len(queries)}")
@@ -67,7 +90,9 @@ def run_feedback_experiment():
     print(f"Evaluating {len(sampled)} queries (seed={SEED})")
 
     before_results = {}
-    after_results = {}
+    explicit_results = {}
+    pseudo_results = {}
+    explicit_coverage = 0
 
     for qid in sampled:
         query_text = queries[qid]
@@ -80,46 +105,88 @@ def run_feedback_experiment():
         before_results[qid] = results_to_beir(hybrid_hits)
 
         query_vector = retriever.encode_query(query_text)
-        refined_hits, _ = retriever.apply_pseudo_rocchio(
+
+        # Explicit feedback: judged-relevant retrieved hits marked relevant,
+        # the remaining retrieved hits marked non-relevant.
+        judged = qrels.get(qid, {})
+        rel_idx = [
+            i for i, hit in enumerate(hybrid_hits) if judged.get(hit["id"], 0) > 0
+        ]
+        nonrel_idx = [
+            i for i, hit in enumerate(hybrid_hits) if judged.get(hit["id"], 0) == 0
+        ]
+        if rel_idx:
+            explicit_coverage += 1
+            explicit_hits, _ = retriever.apply_rocchio_feedback(
+                query_vector,
+                hybrid_hits,
+                relevant_indices=rel_idx,
+                nonrelevant_indices=nonrel_idx,
+                top_k=TOP_K,
+            )
+            explicit_results[qid] = results_to_beir(explicit_hits)
+        else:
+            # No judged-relevant doc retrieved — nothing for the user to mark.
+            explicit_results[qid] = before_results[qid]
+
+        # Pseudo feedback: top-3 hybrid hits blindly assumed relevant.
+        pseudo_hits, _ = retriever.apply_pseudo_rocchio(
             query_vector,
             hybrid_hits,
             top_k_relevant=PSEUDO_RELEVANT,
             top_k=TOP_K,
         )
-        after_results[qid] = results_to_beir(refined_hits)
+        pseudo_results[qid] = results_to_beir(pseudo_hits)
 
     sampled_qrels = {qid: qrels[qid] for qid in sampled if qid in qrels}
     evaluator = EvaluateRetrieval()
 
-    ndcg_b, map_b, _, prec_b = evaluator.evaluate(sampled_qrels, before_results, [5, 10])
-    mrr_b = EvaluateRetrieval.evaluate_custom(
-        sampled_qrels, before_results, [10], metric="mrr"
-    )
+    before = evaluate_run(evaluator, sampled_qrels, before_results)
+    explicit = evaluate_run(evaluator, sampled_qrels, explicit_results)
+    pseudo = evaluate_run(evaluator, sampled_qrels, pseudo_results)
 
-    ndcg_a, map_a, _, prec_a = evaluator.evaluate(sampled_qrels, after_results, [5, 10])
-    mrr_a = EvaluateRetrieval.evaluate_custom(
-        sampled_qrels, after_results, [10], metric="mrr"
-    )
-
-    print(f"\n{'='*60}")
+    print(f"\n{'='*72}")
     print("  Experiment 2 — Rocchio Feedback Gain (SCIDOCS)")
-    print(f"{'='*60}")
-    print(f"  Queries sampled : {len(sampled)}")
-    print(f"  Pseudo-relevant : top {PSEUDO_RELEVANT} hybrid hits")
-    print(f"  {'Metric':<20} {'Before':>12} {'After':>12} {'Delta':>10}")
-    print(f"  {'-'*56}")
+    print(f"{'='*72}")
+    print(f"  Queries sampled        : {len(sampled)}")
+    print(f"  Explicit feedback used : {explicit_coverage}/{len(sampled)} queries "
+          "(had >=1 judged-relevant hit in top-10)")
+    print(f"  Pseudo-relevant        : top {PSEUDO_RELEVANT} hybrid hits")
+    print(
+        f"\n  {'Metric':<12} {'Before':>10} {'Explicit':>10} {'(Δ)':>9}"
+        f" {'Pseudo':>10} {'(Δ)':>9}"
+    )
+    print(f"  {'-'*64}")
 
-    rows = [
-        ("nDCG@10", ndcg_b["NDCG@10"], ndcg_a["NDCG@10"]),
-        ("MAP@10", map_b["MAP@10"], map_a["MAP@10"]),
-        ("P@5", prec_b["P@5"], prec_a["P@5"]),
-        ("MRR@10", mrr_b["MRR@10"], mrr_a["MRR@10"]),
-    ]
-    for name, before, after in rows:
-        delta = after - before
-        sign = "+" if delta >= 0 else ""
-        print(f"  {name:<20} {before:>12.4f} {after:>12.4f} {sign}{delta:>9.4f}")
-    print(f"{'='*60}")
+    for metric in ("nDCG@10", "MAP@10", "P@5", "MRR@10"):
+        b = before[metric]
+        e = explicit[metric]
+        p = pseudo[metric]
+        de, dp = e - b, p - b
+        se = "+" if de >= 0 else ""
+        sp = "+" if dp >= 0 else ""
+        print(
+            f"  {metric:<12} {b:>10.4f} {e:>10.4f} {se}{de:>8.4f}"
+            f" {p:>10.4f} {sp}{dp:>8.4f}"
+        )
+    print(f"{'='*72}")
+
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    report = {
+        "dataset": "scidocs",
+        "queries_sampled": len(sampled),
+        "seed": SEED,
+        "explicit_coverage": explicit_coverage,
+        "pseudo_relevant": PSEUDO_RELEVANT,
+        "rrf_k": RRF_K,
+        "before": before,
+        "explicit": explicit,
+        "pseudo": pseudo,
+    }
+    json_path = os.path.join(RESULTS_DIR, "feedback_report.json")
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+    print(f"Saved: {json_path}")
 
 
 if __name__ == "__main__":

@@ -196,8 +196,9 @@ data/raw/arxiv-metadata-oai-snapshot.json
 
 ### Filtering CS Papers
 
-The dataset is filtered to Computer Science papers (categories prefixed with `cs.`) and
-capped at 500,000 documents for computational feasibility.
+The dataset is filtered to Computer Science papers (categories prefixed with `cs.`),
+yielding **911,488 documents**. (An optional `max_papers` cap in `src/preprocess.py` can
+restrict this to ~500K for tighter computational budgets; it is disabled by default.)
 
 ```bash
 python src/preprocess.py
@@ -282,7 +283,7 @@ Loading papers...
 Loading model: all-MiniLM-L6-v2
 Encoding documents in batches...
 Encoding: 100%|████████████████| 1781/1781 [36:00<00:00,  1.21s/it]
-FAISS index saved. 500000 vectors stored.
+FAISS index saved. 911488 vectors stored.
 ```
 
 Output:
@@ -545,6 +546,41 @@ fusion produces a meaningful improvement. When one method significantly underper
 fusion converges to the stronger baseline. Optimal `k` also varies: SCIDOCS favours
 `k=10` (low smoothing amplifies the dominant SBERT signal) while TREC-COVID favours
 `k=100` (high smoothing blends two competitive signals more evenly).
+
+### Relevance Feedback Gain (Experiment 2 — SCIDOCS, 20 queries)
+
+One round of Rocchio feedback over the hybrid baseline, under two strategies: **explicit**
+(judged-relevant retrieved hits marked relevant — simulating a user marking results) and
+**pseudo** (top-3 hits blindly assumed relevant). The updated query re-queries FAISS.
+
+| Metric  | Before (hybrid) | Explicit Δ            | Pseudo Δ          |
+| ------- | --------------- | --------------------- | ----------------- |
+| nDCG@10 | 0.3139          | **0.4451 (+0.1312)**  | 0.2773 (−0.0366)  |
+| MAP@10  | 0.2155          | **0.3488 (+0.1333)**  | 0.1878 (−0.0277)  |
+| P@5     | 0.2400          | **0.3300 (+0.0900)**  | 0.2200 (−0.0200)  |
+| MRR@10  | 0.4240          | **0.7500 (+0.3260)**  | 0.3424 (−0.0817)  |
+
+Explicit feedback delivers large, consistent gains (+41.8% nDCG@10; MRR@10 nearly doubles),
+applicable to 15 of 20 queries. Pseudo feedback degrades every metric: with P@5 ≈ 0.24 the
+blindly-assumed-relevant top-3 hits are mostly off-topic on this citation-based corpus, so the
+Rocchio centroid drifts away from the relevant region. Reproduce with
+`python evaluation/run_feedback_experiment.py`.
+
+### Clustering Quality (Experiment 3 — SCIDOCS, 20 queries)
+
+Mean silhouette score for `k ∈ {3, 4, 5, 6}` over the top-20 hybrid results per query.
+
+| k | Mean Silhouette | Std    |
+| - | --------------- | ------ |
+| 3 | 0.0233          | 0.0078 |
+| 4 | 0.0228          | 0.0102 |
+| 5 | 0.0252          | 0.0081 |
+| 6 | **0.0256**      | 0.0076 |
+
+Per-query selected `k`: k=3 (2), k=4 (3), k=5 (7), k=6 (8) — highest mean at **k=6**. Absolute
+silhouette values are low because each result set is only 20 short title+abstract snippets over
+sparse TF-IDF, so topic groups are weakly separated (adequate for coarse faceted browsing rather
+than hard partitioning). Reproduce with `python evaluation/run_clustering_experiment.py`.
 
 ---
 
